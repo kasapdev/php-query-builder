@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo, pdo_sqlite, sqlite3, openssl, mbstring, pdo_mysql, mysqli
+      - name: Lint
+        run: find src -name "*.php" -print0 | xargs -0 -n1 -t php -l
+      - name: Run tests
+        run: php tests/run.php
