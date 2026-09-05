@@ -1,0 +1,14 @@
+{
+    "name": "kasapdev/php-query-builder",
+    "description": "A fluent, zero-dependency SQL query builder for PHP that always parameterizes values via bindings, never string interpolation.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kasapdev\\QueryBuilder\\": "src/"
+        }
+    }
+}
