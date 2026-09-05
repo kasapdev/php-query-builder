@@ -1,6 +1,6 @@
 # php-query-builder
 
-[![CI](https://github.com/kasapdev/php-query-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/kasapdev/php-query-builder/actions/workflows/ci.yml)
+[![CI](https://github.com/kasapdev/php-query-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/kasapdev/php-query-builder/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) ![PHP](https://img.shields.io/badge/PHP-8.1%2B-777BB4?logo=php&logoColor=white)
 
 A fluent, zero-dependency SQL query builder for PHP. It builds MySQL-style SQL (backtick-quoted
 identifiers) as plain strings plus a bindings array, ready to hand to `PDO::prepare()` /
