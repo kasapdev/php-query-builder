@@ -194,5 +194,63 @@ $pdo->prepare($sql)->execute($bindings);
 $count = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
 check('generated DELETE executes correctly against real SQLite', $count === 1);
 
+// --- quoteIdentifier(): raw expressions and dotted wildcards ------------------------------
+
+[$sql, $bindings] = QueryBuilder::table('orders')->select(['COUNT(*) AS total'])->toSql();
+check(
+    'a non-identifier select expression (raw SQL) is passed through unmodified, not backtick-quoted',
+    $sql === 'SELECT COUNT(*) AS total FROM `orders`'
+);
+
+[$sql, $bindings] = QueryBuilder::table('users')->select(['users.*'])->toSql();
+check(
+    'a dotted wildcard column (table.*) quotes the table but leaves * unquoted',
+    $sql === 'SELECT `users`.* FROM `users`'
+);
+
+// --- groupBy() with multiple columns via variadic args ------------------------------------
+
+[$sql, $bindings] = QueryBuilder::table('orders')->groupBy('user_id', 'status')->toSql();
+check(
+    'groupBy() accepts multiple columns and compiles all of them in order',
+    $sql === 'SELECT * FROM `orders` GROUP BY `user_id`, `status`'
+);
+
+// --- orderBy() rejects an invalid direction -------------------------------------------------
+
+$threw = false;
+try {
+    QueryBuilder::table('users')->orderBy('name', 'sideways');
+} catch (InvalidArgumentException $e) {
+    $threw = true;
+}
+check('orderBy() throws InvalidArgumentException for a direction other than ASC/DESC', $threw);
+
+// --- insert()/update() reject empty data ----------------------------------------------------
+
+$threw = false;
+try {
+    QueryBuilder::table('users')->insert('users', []);
+} catch (InvalidArgumentException $e) {
+    $threw = true;
+}
+check('insert() throws InvalidArgumentException when given no data', $threw);
+
+$threw = false;
+try {
+    QueryBuilder::table('users')->update('users', [], ['id' => 1]);
+} catch (InvalidArgumentException $e) {
+    $threw = true;
+}
+check('update() throws InvalidArgumentException when given no data to set', $threw);
+
+// --- IN operator accepts a scalar (non-array) value as a single-element list --------------
+
+[$sql, $bindings] = QueryBuilder::table('users')->where('id', 'IN', 5)->toSql();
+check(
+    'IN with a scalar value is treated as a single-element list, not iterated char-by-char',
+    $sql === 'SELECT * FROM `users` WHERE `id` IN (?)' && $bindings === [5]
+);
+
 echo $__failures === 0 ? "\nAll tests passed.\n" : "\n$__failures test(s) FAILED.\n";
 exit($__failures === 0 ? 0 : 1);
