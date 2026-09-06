@@ -240,6 +240,43 @@ final class QueryBuilder
     }
 
     /**
+     * Compile an INSERT ... ON DUPLICATE KEY UPDATE statement (MySQL upsert):
+     * insert $data, or if it collides with an existing row on a unique or
+     * primary key, update that row instead. MySQL determines which row
+     * conflicts from the table's own key constraints, not from anything
+     * passed here.
+     *
+     * @param array<string,mixed> $data Column => value to insert.
+     * @param string[] $updateColumns Columns to refresh to the newly-supplied value when a
+     *     duplicate key is hit. Defaults to every column in $data. Every entry must also be a
+     *     key of $data.
+     *
+     * @return array{0: string, 1: array<int, mixed>}
+     */
+    public function upsert(string $table, array $data, array $updateColumns = []): array
+    {
+        [$sql, $bindings] = $this->insert($table, $data);
+
+        $updateColumns = $updateColumns !== [] ? $updateColumns : array_keys($data);
+
+        $unknown = array_diff($updateColumns, array_keys($data));
+        if ($unknown !== []) {
+            throw new InvalidArgumentException(
+                'upsert() update column(s) not present in $data: ' . implode(', ', $unknown)
+            );
+        }
+
+        $setParts = array_map(
+            fn (string $column): string => $this->quoteIdentifier($column) . ' = VALUES(' . $this->quoteIdentifier($column) . ')',
+            $updateColumns
+        );
+
+        $sql .= ' ON DUPLICATE KEY UPDATE ' . implode(', ', $setParts);
+
+        return [$sql, $bindings];
+    }
+
+    /**
      * Compile a standalone UPDATE statement.
      *
      * @return array{0: string, 1: array<int, mixed>}
