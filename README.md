@@ -55,6 +55,10 @@ $qb = QueryBuilder::table('users');
 [$sql, $bindings] = $qb->insert('users', ['name' => 'Ada', 'email' => 'ada@example.com']);
 $pdo->prepare($sql)->execute($bindings);
 
+// upsert() = INSERT, or UPDATE the existing row if a unique/primary key collides:
+[$sql, $bindings] = $qb->upsert('users', ['id' => 7, 'name' => 'Ada', 'hits' => 1]);
+$pdo->prepare($sql)->execute($bindings);
+
 [$sql, $bindings] = $qb->update('users', ['name' => 'Grace'], ['id' => 7]);
 $pdo->prepare($sql)->execute($bindings);
 
@@ -90,6 +94,33 @@ appends a `?` to the SQL and pushes the raw value onto the bindings array instea
 ->orWhere(...)                   // explicit OR
 ```
 
+### Upsert
+
+```php
+// If a row with a colliding unique/primary key already exists, refresh every
+// given column on it instead of failing the INSERT:
+[$sql, $bindings] = QueryBuilder::table('users')->upsert('users', [
+    'id' => 7,
+    'email' => 'ada@example.com',
+    'login_count' => 1,
+]);
+// INSERT INTO `users` (`id`, `email`, `login_count`) VALUES (?, ?, ?)
+// ON DUPLICATE KEY UPDATE `id` = VALUES(`id`), `email` = VALUES(`email`), `login_count` = VALUES(`login_count`)
+
+// Pass $updateColumns to only refresh specific columns on conflict (e.g. leave
+// login_count alone and just bump the email):
+[$sql, $bindings] = QueryBuilder::table('users')->upsert(
+    'users',
+    ['id' => 7, 'email' => 'ada@example.com', 'login_count' => 1],
+    ['email']
+);
+// ... ON DUPLICATE KEY UPDATE `email` = VALUES(`email`)
+```
+
+This compiles MySQL/MariaDB's `INSERT ... ON DUPLICATE KEY UPDATE`. Which row counts as a
+"duplicate" is decided by the table's own unique/primary key constraints, not by anything passed
+to `upsert()` — there's no separate `$uniqueBy` argument because MySQL doesn't need one.
+
 ## API
 
 ### `QueryBuilder`
@@ -107,6 +138,8 @@ appends a `?` to the SQL and pushes the raw value onto the bindings array instea
 - `offset(int $offset): self`
 - `toSql(): array` → `[string $sql, array $bindings]`
 - `insert(string $table, array $data): array` → `[string $sql, array $bindings]`
+- `upsert(string $table, array $data, array $updateColumns = []): array` → `[string $sql, array $bindings]`
+  — `INSERT ... ON DUPLICATE KEY UPDATE`; `$updateColumns` defaults to every column in `$data`
 - `update(string $table, array $data, array $where): array` → `[string $sql, array $bindings]`
 - `delete(string $table, array $where): array` → `[string $sql, array $bindings]`
 

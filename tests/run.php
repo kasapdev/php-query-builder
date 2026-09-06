@@ -136,6 +136,43 @@ check(
 check('insert compiles column list and placeholders', $sql === 'INSERT INTO `users` (`name`, `email`) VALUES (?, ?)');
 check('insert bindings match data values in order', $bindings === ['Ada', 'ada@example.com']);
 
+// --- upsert() --------------------------------------------------------------------------------
+
+[$sql, $bindings] = QueryBuilder::table('users')->upsert('users', ['id' => 1, 'email' => 'ada@example.com']);
+check(
+    'upsert compiles INSERT ... ON DUPLICATE KEY UPDATE, defaulting to every column',
+    $sql === 'INSERT INTO `users` (`id`, `email`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `id` = VALUES(`id`), `email` = VALUES(`email`)'
+);
+check('upsert bindings are the insert values only, in order', $bindings === [1, 'ada@example.com']);
+
+[$sql, $bindings] = QueryBuilder::table('users')->upsert('users', ['id' => 1, 'email' => 'ada@example.com', 'hits' => 1], ['email']);
+check(
+    'upsert with explicit $updateColumns only refreshes those columns on conflict',
+    $sql === 'INSERT INTO `users` (`id`, `email`, `hits`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE `email` = VALUES(`email`)'
+);
+check('upsert bindings are unaffected by $updateColumns (still every inserted value)', $bindings === [1, 'ada@example.com', 1]);
+
+$maliciousUpsertValue = "'; DROP TABLE users; --";
+[$sql, $bindings] = QueryBuilder::table('users')->upsert('users', ['id' => 1, 'name' => $maliciousUpsertValue]);
+check('malicious upsert() value does not appear in the SQL string', !str_contains($sql, 'DROP TABLE'));
+check('malicious upsert() value lands only in bindings', $bindings === [1, $maliciousUpsertValue]);
+
+$threw = false;
+try {
+    QueryBuilder::table('users')->upsert('users', []);
+} catch (InvalidArgumentException $e) {
+    $threw = true;
+}
+check('upsert() throws InvalidArgumentException when given no data (same guard as insert())', $threw);
+
+$threw = false;
+try {
+    QueryBuilder::table('users')->upsert('users', ['id' => 1], ['not_a_column']);
+} catch (InvalidArgumentException $e) {
+    $threw = true;
+}
+check('upsert() throws InvalidArgumentException when an update column is not in $data', $threw);
+
 // --- update() ------------------------------------------------------------------------------
 
 [$sql, $bindings] = QueryBuilder::table('users')->update('users', ['name' => 'Grace'], ['id' => 7]);
